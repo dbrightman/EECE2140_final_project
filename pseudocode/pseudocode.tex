@@ -1,0 +1,267 @@
+\documentclass[a4paper,11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{xcolor}
+\usepackage{hyperref}
+
+\title{\textbf{Elevator Path Tracking System} \\ Iteration 3}
+\author{Daniel Brightman \and Joel Kamhazi}
+\date{}
+
+\begin{document}
+\maketitle
+
+%% ─────────────────────────────────────────────
+\section{Pseudocode Overview}
+
+\begin{tabular}{>{\bfseries}p{3.5cm} p{4cm} p{3cm} p{3cm}}
+\toprule
+Functionality & Purpose & Input & Output \\
+\midrule
+Add Floor Request   & Add a floor to an elevator's queue        & Elevator ID, floor no.           & Updated queue printed \\
+Calculate Path (FCFS) & Serve requests in arrival order         & Queue, current floor             & Ordered floor list \\
+Calculate Path (SSTF) & Serve nearest floor first               & Queue, current floor             & Ordered floor list \\
+Calculate Path (SCAN) & Sweep direction, then reverse           & Queue, current floor, direction  & Ordered floor list \\
+Assign Best Elevator  & Dispatch to closest elevator            & Floor request, all positions     & Assigned elevator ID \\
+Run Simulation        & Step-by-step movement display           & Path, starting floor             & Floor-by-floor output \\
+\bottomrule
+\end{tabular}
+
+%% ─────────────────────────────────────────────
+\section{Detailed Pseudocode}
+
+%% --- 1. Add Floor Request ---
+\begin{algorithm}
+\caption{Add Floor Request}
+\begin{algorithmic}[1]
+
+\State \textbf{Class} \textit{Building}
+\State \hspace{0.5cm} \textbf{Public:}
+\State \hspace{1cm} \textbf{Function} addRequest(\textit{elevatorID}, \textit{floorNumber})
+\State \hspace{1.5cm} \textbf{Input:} \textit{elevatorID} (int), \textit{floorNumber} (int)
+\State \hspace{1.5cm} \textbf{Output:} Updated queue printed to terminal
+
+\If{$\textit{floorNumber} < 1$ \textbf{or} $\textit{floorNumber} > \textit{totalFloors}$}
+    \State Output ``Error: floor \textit{floorNumber} is out of range.''
+    \State \Return
+\EndIf
+\If{\textit{elevatorID} not in \textit{elevators}}
+    \State Output ``Error: elevator \textit{elevatorID} does not exist.''
+    \State \Return
+\EndIf
+
+\State $\textit{elevator} \leftarrow$ getElevator(\textit{elevatorID})
+\State $\textit{elevator}$.requestQueue.append(\textit{floorNumber})
+\State Output ``Floor \textit{floorNumber} added to Elevator \textit{elevatorID} queue.''
+\State Output ``Current queue: '' + \textit{elevator}.requestQueue
+
+\State \hspace{1cm} \textbf{End Function}
+\State \textbf{End Class}
+
+\end{algorithmic}
+\end{algorithm}
+
+%% --- 2. FCFS ---
+\begin{algorithm}
+\caption{Calculate Path -- FCFS (First Come, First Served)}
+\begin{algorithmic}[1]
+
+\State \textbf{Class} \textit{Scheduler}
+\State \hspace{0.5cm} \textbf{Public:}
+\State \hspace{1cm} \textbf{Function} computeFCFS(\textit{requestQueue}, \textit{currentFloor}) $\rightarrow$ list
+\State \hspace{1.5cm} \textbf{Input:} \textit{requestQueue} (vector$<$int$>$), \textit{currentFloor} (int)
+\State \hspace{1.5cm} \textbf{Output:} Ordered list of floors to visit
+
+\If{\textit{requestQueue} is empty}
+    \State Output ``No pending requests.''
+    \State \Return $[\,]$
+\EndIf
+
+\State $\textit{path} \leftarrow [\,]$
+\For{each \textit{floor} in \textit{requestQueue} (in arrival order)}
+    \State $\textit{path}$.append(\textit{floor})
+\EndFor
+
+\State Output ``FCFS Path: '' + \textit{path}
+\State \Return \textit{path}
+
+\State \hspace{1cm} \textbf{End Function}
+\State \textbf{End Class}
+
+\end{algorithmic}
+\end{algorithm}
+
+%% --- 3. SSTF ---
+\begin{algorithm}
+\caption{Calculate Path -- SSTF (Shortest Seek Time First)}
+\begin{algorithmic}[1]
+
+\State \textbf{Class} \textit{Scheduler}
+\State \hspace{0.5cm} \textbf{Public:}
+\State \hspace{1cm} \textbf{Function} computeSSTF(\textit{requestQueue}, \textit{currentFloor}) $\rightarrow$ list
+\State \hspace{1.5cm} \textbf{Input:} \textit{requestQueue} (vector$<$int$>$), \textit{currentFloor} (int)
+\State \hspace{1.5cm} \textbf{Output:} Optimised ordered list of floors
+
+\If{\textit{requestQueue} is empty}
+    \State Output ``No pending requests.''
+    \State \Return $[\,]$
+\EndIf
+
+\State $\textit{remaining} \leftarrow$ copy of \textit{requestQueue}
+\State $\textit{path} \leftarrow [\,]$
+\State $\textit{position} \leftarrow \textit{currentFloor}$
+
+\While{\textit{remaining} is not empty}
+    \State $\textit{nearest} \leftarrow$ floor in \textit{remaining} with $\min|\textit{floor} - \textit{position}|$
+    \State $\textit{path}$.append(\textit{nearest})
+    \State $\textit{position} \leftarrow \textit{nearest}$
+    \State $\textit{remaining}$.remove(\textit{nearest})
+\EndWhile
+
+\State Output ``SSTF Path: '' + \textit{path}
+\State \Return \textit{path}
+
+\State \hspace{1cm} \textbf{End Function}
+\State \textbf{End Class}
+
+\end{algorithmic}
+\end{algorithm}
+
+%% --- 4. SCAN ---
+\begin{algorithm}
+\caption{Calculate Path -- SCAN}
+\begin{algorithmic}[1]
+
+\State \textbf{Class} \textit{Scheduler}
+\State \hspace{0.5cm} \textbf{Public:}
+\State \hspace{1cm} \textbf{Function} computeSCAN(\textit{requestQueue}, \textit{currentFloor}, \textit{direction}) $\rightarrow$ list
+\State \hspace{1.5cm} \textbf{Input:} \textit{requestQueue} (vector$<$int$>$), \textit{currentFloor} (int), \textit{direction} (string)
+\State \hspace{1.5cm} \textbf{Output:} Sweep-ordered list of floors
+
+\If{\textit{requestQueue} is empty}
+    \State Output ``No pending requests.''
+    \State \Return $[\,]$
+\EndIf
+
+\State $\textit{above} \leftarrow$ sort ascending $\{f \in \textit{requestQueue} \mid f \geq \textit{currentFloor}\}$
+\State $\textit{below} \leftarrow$ sort descending $\{f \in \textit{requestQueue} \mid f < \textit{currentFloor}\}$
+\State $\textit{path} \leftarrow [\,]$
+
+\If{\textit{direction} $=$ ``up''}
+    \State $\textit{path} \leftarrow \textit{above} + \textit{below}$
+\Else
+    \State $\textit{path} \leftarrow \textit{below} + \textit{above}$
+\EndIf
+
+\State Output ``SCAN Path: '' + \textit{path}
+\State \Return \textit{path}
+
+\State \hspace{1cm} \textbf{End Function}
+\State \textbf{End Class}
+
+\end{algorithmic}
+\end{algorithm}
+
+%% --- 5. Assign Best Elevator ---
+\begin{algorithm}
+\caption{Assign Best Elevator}
+\begin{algorithmic}[1]
+
+\State \textbf{Class} \textit{Building}
+\State \hspace{0.5cm} \textbf{Public:}
+\State \hspace{1cm} \textbf{Function} assignBestElevator(\textit{requestedFloor}, \textit{elevators}) $\rightarrow$ int
+\State \hspace{1.5cm} \textbf{Input:} \textit{requestedFloor} (int), \textit{elevators} (vector$<$Elevator$>$)
+\State \hspace{1.5cm} \textbf{Output:} ID of assigned elevator
+
+\If{\textit{elevators} is empty}
+    \State Output ``Error: no elevators available.''
+    \State \Return $-1$
+\EndIf
+
+\State $\textit{bestID} \leftarrow -1$
+\State $\textit{minDistance} \leftarrow \infty$
+
+\For{each \textit{elevator} in \textit{elevators}}
+    \State $\textit{dist} \leftarrow |\textit{elevator}.\textit{currentFloor} - \textit{requestedFloor}|$
+    \If{$\textit{dist} < \textit{minDistance}$}
+        \State $\textit{minDistance} \leftarrow \textit{dist}$
+        \State $\textit{bestID} \leftarrow \textit{elevator}.\textit{elevatorID}$
+    \EndIf
+\EndFor
+
+\State Output ``Elevator '' + \textit{bestID} + `` assigned to floor '' + \textit{requestedFloor}
+\State \Return \textit{bestID}
+
+\State \hspace{1cm} \textbf{End Function}
+\State \textbf{End Class}
+
+\end{algorithmic}
+\end{algorithm}
+
+%% --- 6. Run Simulation ---
+\begin{algorithm}
+\caption{Run Simulation}
+\begin{algorithmic}[1]
+
+\State \textbf{Class} \textit{Simulation}
+\State \hspace{0.5cm} \textbf{Private:}
+\State \hspace{1cm} \textit{stepCount} $\rightarrow$ integer
+\State \hspace{1cm} \textit{log} $\rightarrow$ list of strings
+
+\State \hspace{0.5cm} \textbf{Public:}
+\State \hspace{1cm} \textbf{Function} run(\textit{elevator}, \textit{path})
+\State \hspace{1.5cm} \textbf{Input:} \textit{elevator} (Elevator), \textit{path} (vector$<$int$>$)
+\State \hspace{1.5cm} \textbf{Output:} Step-by-step terminal display; events stored in \textit{log}
+
+\If{\textit{path} is empty}
+    \State Output ``No path to simulate.''
+    \State \Return
+\EndIf
+
+\State $\textit{position} \leftarrow \textit{elevator}.\textit{currentFloor}$
+\State $\textit{stepCount} \leftarrow 0$
+
+\For{each \textit{target} in \textit{path}}
+    \While{$\textit{position} \neq \textit{target}$}
+        \If{$\textit{target} > \textit{position}$}
+            \State $\textit{position} \leftarrow \textit{position} + 1$
+            \State $\textit{direction} \leftarrow$ ``up''
+        \Else
+            \State $\textit{position} \leftarrow \textit{position} - 1$
+            \State $\textit{direction} \leftarrow$ ``down''
+        \EndIf
+        \State $\textit{stepCount} \leftarrow \textit{stepCount} + 1$
+        \State $\textit{event} \leftarrow$ ``Step '' + \textit{stepCount} + ``: Elevator '' + \textit{elevator}.\textit{elevatorID} + `` at floor '' + \textit{position} + `` moving '' + \textit{direction}
+        \State Output \textit{event}
+        \State \textit{log}.append(\textit{event})
+    \EndWhile
+    \State Output ``$>>>$ Arrived at requested floor: '' + \textit{target}
+\EndFor
+
+\State $\textit{elevator}.\textit{currentFloor} \leftarrow \textit{position}$
+\State Output ``Simulation complete. Total steps: '' + \textit{stepCount}
+
+\State \hspace{1cm} \textbf{End Function}
+\State \textbf{End Class}
+
+\end{algorithmic}
+\end{algorithm}
+
+%% ─────────────────────────────────────────────
+\section{Class Interaction and Responsibility}
+
+\begin{tabular}{>{\bfseries}p{2.2cm} p{3.6cm} p{2.8cm} p{4cm}}
+\toprule
+Class & Responsibility & Interacts With & Why Necessary \\
+\midrule
+Elevator   & Stores per-elevator state (floor, direction, queue); executes movement one step at a time & Building, Scheduler, Simulation & Encapsulates the mutable state of each physical elevator \\
+Scheduler  & Applies FCFS / SSTF / SCAN to produce an ordered visit path & Elevator & Separates algorithm logic from data, making strategies easy to swap \\
+Building   & Holds all elevators and total floor count; dispatches incoming requests to best elevator & Elevator, Scheduler, Simulation & Top-level coordinator; owns the elevator collection \\
+Simulation & Runs the step-by-step movement loop; records and prints the full event log & Elevator, Building & Decouples execution and display logic from data and scheduling logic \\
+\bottomrule
+\end{tabular}
+
+\end{document}
